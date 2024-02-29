@@ -203,8 +203,9 @@ def LookForClientsAndData(serverSocket, clientSocket):
 
 def updateInfo(curs, myId, myName, typeUpdate, updatedInfo):
     curs.execute(f"UPDATE users SET '{typeUpdate}' = '{updatedInfo}' WHERE idforShow = '{myId}' AND name = '{myName}'") # update user info
-    curs.execute(f"SELECT * FROM users WHERE idforShow='{myId}' AND name = '{myName}' ")
+    curs.execute(f"SELECT name, last_name, birthdate, gender, region, Email  FROM users WHERE idforShow='{myId}' AND name = '{myName}' ")
     userInfo = curs.fetchone()
+    
     
 
 def banUser(curs, myId, myName, UserId, UserName):
