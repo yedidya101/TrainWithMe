@@ -192,10 +192,20 @@ def LookForClientsAndData(serverSocket, clientSocket):
                         msg = "Error occurd, the user was not banned."
                     dec = {"name" : sender, "opcode": 9, "msg" : msg } 
                     current_socket.send(json.dumps(dec).encode())
+                
+                elif(opcode == 11): # update personal information
+                    dataList = msg.split(",")
+                    myId = dataList[0]
+                    myName = dataList[1]
+                    typeUpdate = dataList[2]
+                    updatedInfo = dataList[3]
 
 
-
-
+def updateInfo(curs, myId, myName, typeUpdate, updatedInfo):
+    curs.execute(f"UPDATE users SET '{typeUpdate}' = '{updatedInfo}' WHERE idforShow = '{myId}' AND name = '{myName}'") # update user info
+    curs.execute(f"SELECT * FROM users WHERE idforShow='{myId}' AND name = '{myName}' ")
+    userInfo = curs.fetchone()
+    
 
 def banUser(curs, myId, myName, UserId, UserName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
