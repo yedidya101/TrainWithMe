@@ -85,8 +85,9 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     workoutlist = msg.split(',')
                     creatorId = workoutlist.pop()
                     creatorName = workoutlist.pop()
-                    isBlackList = curs.execute(f"SELECT isBlackList FROM users WHERE idforShow ='{creatorId}' AND name = '{creatorName}' " ) # check if user not muted
-                    if(isBlackList != 1):
+                    curs.execute(f"SELECT isMute FROM users WHERE idforShow ='{creatorId}' AND name = '{creatorName}' " ) # check if user not muted
+                    IsMute = curs.fetchone()
+                    if(IsMute != 1):
                         newworkout = workout(*workoutlist)
                         createWorkout(curs, workout)
                         msg = "workout has been added"
@@ -170,13 +171,49 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myName = muteInfo[1]
                     UserId = muteInfo[2]
                     UserName = muteInfo[3]
+                    gotMute = muteUser(curs, myId, myName, UserId, UserName)
+                    if(gotMute):
+                        msg = "The User has muted."
+                    else: 
+                        msg = "Error occurd, the user was not muted."
+                    dec = {"name" : sender, "opcode": 9, "msg" : msg } 
+                    current_socket.send(json.dumps(dec).encode())
+
+                elif(opcode == 10): # ban user
+                    banInfo = msg.split(",")
+                    myId = banInfo[0]
+                    myName = banInfo[1]
+                    UserId = banInfo[2]
+                    UserName = banInfo[3]
+                    gotBan = banUser(curs, myId, myName, UserId, UserName)
+                    if(gotBan):
+                        msg = "The User has banned."
+                    else: 
+                        msg = "Error occurd, the user was not banned."
+                    dec = {"name" : sender, "opcode": 9, "msg" : msg } 
+                    current_socket.send(json.dumps(dec).encode())
+
+
+
+
+
+def banUser(curs, myId, myName, UserId, UserName):
+    curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
+    isAdmin = curs.fetchone() #check if user that request to ban is admin.
+    if(isAdmin == 1):
+        isBlackList = 1 
+        curs.execute(f"UPDATE users SET isBlackList = '{isBlackList}' WHERE idforShow = '{UserId}' AND name = '{UserName}'") # update user that got banned
+        return True
+    return False
+
+
 
 def muteUser(curs, myId, myName, UserId, UserName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
     isAdmin = curs.fetchone()
     if(isAdmin == 1):
-        isBlackList = 1 
-        curs.execute(f"UPDATE users SET isBlackList = '{isBlackList}' WHERE idforShow = '{UserId}' AND name = '{UserName}'")
+        isMute = 1 
+        curs.execute(f"UPDATE users SET isMute = '{isMute}' WHERE idforShow = '{UserId}' AND name = '{UserName}'")
         return True
     return False
 
@@ -212,9 +249,9 @@ def joinWorkout(curs, myId, myName, workoutId, workoutCreator):
     curs.execute(f"SELECT * FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' ") # check if there workout with that info exist
     exist = curs.fetchone() is not None
     if(exist):
-        curs.execute(f"SELECT isBlackList FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " ) # check if user not muted
-        isBlackList = curs.fetchone()
-        if(isBlackList != 1):
+        curs.execute(f"SELECT isMute FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " ) # check if user not muted
+        isMute = curs.fetchone()
+        if(isMute != 1):
             curs.execute(f"SELECT participants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
             participants = curs.fetchone()
             participants = json.dumps(participants)

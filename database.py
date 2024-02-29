@@ -21,6 +21,7 @@ def createTables(c):
               friendlist TEXT,
               reqList TEXT,
               isAdmin INTEGER,
+              isMute INTEGER,
               isBlackList INTEGER)''')
 # Create a table for workouts
     c.execute('''CREATE TABLE IF NOT EXIST workouts 
@@ -39,8 +40,8 @@ def createTables(c):
 def insert_user(user, password, c):
     friendlist = {} 
     reqList = {}
-    c.execute("INSERT INTO users (name, last_name, birthdate, gender, region, Email, Password, friendlist, reqList, isAdmin, isBlackList) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              (user.Name, user.Last_name, user.Birthdate, user.Gender, user.Region, user.Email, password, friendlist, reqList, 0, 0))
+    c.execute("INSERT INTO users (name, last_name, birthdate, gender, region, Email, Password, friendlist, reqList, isAdmin, isMute, isBlackList) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (user.Name, user.Last_name, user.Birthdate, user.Gender, user.Region, user.Email, password, friendlist, reqList, 0, 0, 0))
     conn.commit()
 
 def insert_workout(workout, c):
