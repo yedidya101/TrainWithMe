@@ -59,20 +59,24 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     userList = msg.split(',')
                     password = userList.pop()
                     print(userList)
-                    newUser = user(*userList) 
-                    status = Register(curs, newUser, password) #try to register new user. if exist, status = false if not exist status = true and user have been added
+                    publicID = database.getUniqueID(curs)
+                    newUser = user(*userList, publicID) 
+                    status, client = Register(con, curs, newUser, password) #try to register new user. if exist, status = false if not exist status = true and user have been added
                     if(status):
-                        msg = "Registered"
+                        msg = json.dumps(client)
+
                     else:
-                        msg = "error"
+                        #msg = "error occured"
+                        msg = json.dumps(client)
                     dec = {"name" : sender, "opcode": 1, "msg" : msg }
                     current_socket.send(json.dumps(dec).encode())
+                    con.close()
 
                 elif(opcode == 2): # login request
                     userList = msg.split(',') # info from msg that client send, include password and Email with "," bettwen them
                     password = userList.pop()
                     Email = userList.pop()
-                    User = Login(curs, Email, password) # ask data base to see if there is an exist account and if exist give info and create user obj
+                    User = Login(con, curs, Email, password) # ask data base to see if there is an exist account and if exist give info and create user obj
                     if(User == None):
                         msg = "Login failed "
                     else:
@@ -89,7 +93,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     IsMute = curs.fetchone()
                     if(IsMute != 1):
                         newworkout = workout(*workoutlist)
-                        createWorkout(curs, workout)
+                        createWorkout(con, curs, workout)
                         msg = "workout has been added"
                     else:
                         msg = "you are muted from creating workout. the workout has not created."
@@ -102,7 +106,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     sender =  friendRq[1]
                     reciverId = friendRq[2]
                     reciver = friendRq[3]
-                    sendReq = friendReq(curs, sender, senderId, reciver, reciverId)
+                    sendReq = friendReq(con, curs, sender, senderId, reciver, reciverId)
                     if(sendReq): # if the req have been sent successfully
                         msg = "friend request have been sent."
                         dec = {"name" : sender, "opcode": 4, "msg" : msg }
@@ -117,7 +121,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myName = friendInfo[1]
                     newFriendId =  friendInfo[2]
                     newFriendName = friendInfo[3]
-                    updatedFriendList = acceptReq(curs, myId, myName, newFriendId, newFriendName) # set new friend in both users friend lists
+                    updatedFriendList = acceptReq(con, curs, myId, myName, newFriendId, newFriendName) # set new friend in both users friend lists
                     msg = updatedFriendList
                     dec = {"name" : sender, "opcode": 5, "msg" : msg } # return updated friend list.
                     current_socket.send(json.dumps(dec).encode())
@@ -128,7 +132,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myName = workoutInfo[1]
                     workoutCreator = workoutInfo[2]
                     workoutId = workoutInfo[3]
-                    addedToWorkout = joinWorkout(curs, myId, myName, workoutId, workoutCreator) # add me to participants list.
+                    addedToWorkout = joinWorkout(con, curs, myId, myName, workoutId, workoutCreator) # add me to participants list.
                     if(addedToWorkout):
                         msg = "Added To The Workout Successfully. "
                     else: 
@@ -142,7 +146,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myName = workoutInfo[1]
                     workoutCreator = workoutInfo[2]
                     workoutId = workoutInfo[3]
-                    isRemoved = removeFromWorkout(curs, myId, myName, workoutId, workoutCreator)
+                    isRemoved = removeFromWorkout(con, curs, myId, myName, workoutId, workoutCreator)
                     if(isRemoved):
                         msg = "You have been removed from this workout."
                     else:
@@ -156,7 +160,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myName = workoutInfo[1]
                     workoutCreator = workoutInfo[2]
                     workoutId = workoutInfo[3]
-                    isWorkoutRemoved = deleteWorkout(curs,workoutId, workoutCreator, myId, myName)
+                    isWorkoutRemoved = deleteWorkout(con, curs,workoutId, workoutCreator, myId, myName)
                     if(isWorkoutRemoved):
                         msg = "Workout removed."
                     else:
@@ -171,7 +175,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myName = muteInfo[1]
                     UserId = muteInfo[2]
                     UserName = muteInfo[3]
-                    gotMute = muteUser(curs, myId, myName, UserId, UserName)
+                    gotMute = muteUser(con, curs, myId, myName, UserId, UserName)
                     if(gotMute):
                         msg = "The User has muted."
                     else: 
@@ -185,7 +189,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myName = banInfo[1]
                     UserId = banInfo[2]
                     UserName = banInfo[3]
-                    gotBan = banUser(curs, myId, myName, UserId, UserName)
+                    gotBan = banUser(con, curs, myId, myName, UserId, UserName)
                     if(gotBan):
                         msg = "The User has banned."
                     else: 
@@ -196,48 +200,54 @@ def LookForClientsAndData(serverSocket, clientSocket):
                 elif(opcode == 11): # update personal information
                     dataList = msg.split(",")
                     myId = dataList[0]
-                    myName = dataList[1]
-                    typeUpdate = dataList[2]
-                    updatedInfo = dataList[3]
+                    typeUpdate = dataList[1]
+                    updatedInfo = dataList[2]
 
+                    userInfo = updateInfo(con, curs, myId, typeUpdate, updatedInfo)
+                    dec = {"name" : sender, "opcode": 11, "msg" : userInfo } 
+                    current_socket.send(json.dumps(dec).encode())
 
-def updateInfo(curs, myId, myName, typeUpdate, updatedInfo):
-    curs.execute(f"UPDATE users SET '{typeUpdate}' = '{updatedInfo}' WHERE idforShow = '{myId}' AND name = '{myName}'") # update user info
-    curs.execute(f"SELECT name, last_name, birthdate, gender, region, Email  FROM users WHERE idforShow='{myId}' AND name = '{myName}' ")
+def updateInfo(con, curs, myId, typeUpdate, updatedInfo):
+    curs.execute(f"UPDATE users SET {typeUpdate} = ? WHERE idforShow = ?", (updatedInfo, myId)) # update user info
+    con.commit()
+    curs.execute(f"SELECT idforShow, name, last_name, birthdate, gender, region, Email  FROM users WHERE idforShow='{myId}'")
     userInfo = curs.fetchone()
-    
+    return userInfo
     
 
-def banUser(curs, myId, myName, UserId, UserName):
+def banUser(con, curs, myId, myName, UserId, UserName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
     isAdmin = curs.fetchone() #check if user that request to ban is admin.
     if(isAdmin == 1):
         isBlackList = 1 
         curs.execute(f"UPDATE users SET isBlackList = '{isBlackList}' WHERE idforShow = '{UserId}' AND name = '{UserName}'") # update user that got banned
+        con.commit()
         return True
     return False
 
 
 
-def muteUser(curs, myId, myName, UserId, UserName):
+def muteUser(con, curs, myId, myName, UserId, UserName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
     isAdmin = curs.fetchone()
     if(isAdmin == 1):
         isMute = 1 
         curs.execute(f"UPDATE users SET isMute = '{isMute}' WHERE idforShow = '{UserId}' AND name = '{UserName}'")
+        con.commit()
         return True
     return False
 
-def deleteWorkout(curs,workoutId, workoutCreator, myId, myName):
+def deleteWorkout(con, curs,workoutId, workoutCreator, myId, myName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
     isAdmin = curs.fetchone()
     if(isAdmin == 1):
         curs.execute(f"DELETE FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+        con.commit()
         return True
     return False
 
 
-def removeFromWorkout(curs, myId, myName, workoutId, workoutCreator):
+def removeFromWorkout(con, curs, myId, myName, workoutId, workoutCreator):
     curs.execute(f"SELECT * FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' ") # check if there workout with that info exist
     exist = curs.fetchone() is not None
     if(exist):
@@ -247,16 +257,18 @@ def removeFromWorkout(curs, myId, myName, workoutId, workoutCreator):
         del participants[myId]  # delete me from dic
         participants = json.loads(participants) # update workout info 
         curs.execute(f"UPDATE workouts SET participants = '{participants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ")
+        con.commit()
 
         curs.execute(f"SELECT numOfParticipants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
         numOfParticipants = curs.fetchone()
         numOfParticipants -= 1
         curs.execute(f"UPDATE workouts SET numOfParticipants = '{numOfParticipants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ") # update number of participants.
+        con.commit()
         return True
     return False
 
 
-def joinWorkout(curs, myId, myName, workoutId, workoutCreator):
+def joinWorkout(con, curs, myId, myName, workoutId, workoutCreator):
     curs.execute(f"SELECT * FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' ") # check if there workout with that info exist
     exist = curs.fetchone() is not None
     if(exist):
@@ -269,15 +281,17 @@ def joinWorkout(curs, myId, myName, workoutId, workoutCreator):
             participants[myId] = myName
             participants = json.loads(participants) # update workout info 
             curs.execute(f"UPDATE workouts SET participants = '{participants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ")
+            con.commit()
 
             curs.execute(f"SELECT numOfParticipants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
             numOfParticipants = curs.fetchone() 
             numOfParticipants += 1
             curs.execute(f"UPDATE workouts SET numOfParticipants = '{numOfParticipants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ") # update number of participants.
+            con.commit()
             return True
     return False
 
-def acceptReq(curs, myId, myName, newFriendId, newFriendName):
+def acceptReq(con, curs, myId, myName, newFriendId, newFriendName):
         #update my new freind list
         curs.execute(f"SELECT friendlist FROM users WHERE idforShow ='{newFriendId}' AND name = '{newFriendName}' " )
         friendlist = curs.fetchone()
@@ -285,6 +299,7 @@ def acceptReq(curs, myId, myName, newFriendId, newFriendName):
         friendlist[myId] = myName # add me in my friend, friend list
         friendlist = json.loads(friendlist)
         curs.execute(f"UPDATE users SET friendlist = '{friendlist}' WHERE idforShow ='{newFriendId}' AND name = '{newFriendName}'  ")
+        con.commit()
 
         #update freind list for my user in data base
         curs.execute(f"SELECT friendlist FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
@@ -293,10 +308,11 @@ def acceptReq(curs, myId, myName, newFriendId, newFriendName):
         friendlist[newFriendId] = newFriendName # add my friend in my friend list
         friendlist = json.loads(friendlist)
         curs.execute(f"UPDATE users SET friendlist = '{friendlist}' WHERE idforShow ='{myId}' AND name = '{myName}'  ")
+        con.commit()
         return friendlist # the friend request have been sent successfully
 
 
-def friendReq(curs, sender, senderId, reciver, reciverId):
+def friendReq(con, curs, sender, senderId, reciver, reciverId):
     curs.execute(f"SELECT * FROM users WHERE idforShow ='{reciverId}' AND name = '{reciver}' ") # check if there user with that info exist
     exist = curs.fetchone() is not None
     if(exist):
@@ -307,27 +323,31 @@ def friendReq(curs, sender, senderId, reciver, reciverId):
         reqList[senderId] = sender
         reqList = json.loads(reqList)
         curs.execute(f"UPDATE users SET reqList = '{reqList}' WHERE idforShow ='{reciverId}' AND name = '{reciver}'  ")
+        con.commit()
         return True # the friend request have been sent successfully
     return False # the user that the client gave to send friend req for is not exist
 
-def Register(curs, user, password):
+def Register(con, curs, user, password):
     #check if user exist
+    testFlag = False
     curs.execute(f"SELECT * FROM users WHERE Email='{user.Email}'")
     exist = curs.fetchone() is not None
     if(not exist):
-        database.insert_user(user, password, curs) # create user
-        return True
-    return False
+        testFlag = True
+        database.insert_user(user, password, con, curs) # create user
+    curs.execute(f"SELECT * FROM users WHERE Email='{user.Email}' AND password = '{password}'")
+    client = curs.fetchone()
+    return testFlag, client
 
-def Login(curs, Email, password):
+def Login(con, curs, Email, password):
     curs.execute(f"SELECT * FROM users WHERE Email='{Email}' AND Password = '{password}' ")
     userInfo = curs.fetchone()
     userInfo = list(userInfo)
-    userInfo = userInfo[:-3] # remove last 3 cells from is admin is blacklist and password to create user obj
+    userInfo = userInfo[:-4] # remove last 3 cells from is admin is blacklist is mute and password to create user obj
     newUser = user(*userInfo) 
     return newUser
 
-def createWorkout(curs,workout):
+def createWorkout(con, curs,workout):
         database.insert_workout(workout, curs)
 
 
@@ -341,13 +361,14 @@ class workout:
         workout.PrivateWorkout = PrivateWorkout
         workout.numOfParticipants = numOfParticipants
 class user: 
-    def __init__(info, Name, Last_name, Birthdate, Gender, Region, Email):
+    def __init__(info, Name, Last_name, Birthdate, Gender, Region, Email, publicID):
         info.Name = Name
         info.Last_name = Last_name
         info.Birthdate = Birthdate
         info.Gender = Gender
         info.Region = Region
         info.Email = Email
+        info.publicID = publicID
         
     def __str__(self):
         return F"{self.Name}, {self.Last_name}, {self.Birthdate}, {self.Gender}, {self.Region}, {self.Email}"

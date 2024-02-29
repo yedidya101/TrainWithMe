@@ -1,30 +1,31 @@
 import sqlite3
 import json
-
+import random
 # Connect to the SQLite database
 
-conn = sqlite3.connect('TrainWithMe.db')
-c = conn.cursor()
+#conn = sqlite3.connect('TrainWithMe.db')
+#c = conn.cursor()
+
 
 # Create a table for users
 def createTables(c):
-    c.execute('''CREATE TABLE IF NOT EXIST users
+    c.execute('''CREATE TABLE IF NOT EXISTS users
              (id INTEGER PRIMARY KEY,
-              idforShow INTEGER UNIQE,
+              idforShow TEXT UNIQE,
               name TEXT,
               last_name TEXT,
               birthdate TEXT,
               gender TEXT,
               region TEXT,
               Email TEXT,
-              Password TEXT,
+              Password TEXT NOT NULL,
               friendlist TEXT,
               reqList TEXT,
-              isAdmin INTEGER,
-              isMute INTEGER,
-              isBlackList INTEGER)''')
+              isAdmin INTEGER DEFAULT 0,
+              isMute INTEGER DEFAULT 0,
+              isBlackList INTEGER DEFAULT 0)''')
 # Create a table for workouts
-    c.execute('''CREATE TABLE IF NOT EXIST workouts 
+    c.execute('''CREATE TABLE IF NOT EXISTS workouts 
              (id INTEGER PRIMARY KEY,
               idforShow INTEGER UNIQE,
               time TEXT,
@@ -35,16 +36,30 @@ def createTables(c):
               numOfParticipants INTEGER,
               private_workout INTEGER)''')
 
-    
+
+def getUniqueID(curs):
+    IdNotTwice = True
+    while(IdNotTwice):
+        random_number = random.randint(0, 9999)
+        publicID = '{:04d}'.format(random_number)
+        curs.execute(f"SELECT * FROM users WHERE idforShow ='{publicID}'")
+        exist = curs.fetchone() is not None
+        if(not exist):
+            return publicID
+        curs.fetchall()
+
+
 # Define functions to insert data into the tables
-def insert_user(user, password, c):
-    friendlist = {} 
-    reqList = {}
-    c.execute("INSERT INTO users (name, last_name, birthdate, gender, region, Email, Password, friendlist, reqList, isAdmin, isMute, isBlackList) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              (user.Name, user.Last_name, user.Birthdate, user.Gender, user.Region, user.Email, password, friendlist, reqList, 0, 0, 0))
+def insert_user(user, password, conn, c):
+    friendlist = json.dumps({})
+    reqList = json.dumps({})
+    
+    c.execute("""INSERT INTO users (idforShow, name, last_name, birthdate, gender, region, Email, friendlist,
+               reqList, Password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+              (user.publicID, user.Name, user.Last_name, user.Birthdate, user.Gender, user.Region, user.Email, friendlist, reqList, password))
     conn.commit()
 
-def insert_workout(workout, c):
+def insert_workout(workout, conn, c):
     participants = workout.participant 
     participants = json.loads(participants)
     c.execute("INSERT INTO workouts (time, location, sport_type, creator,participants, numOfParticipants, private_workout) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -62,4 +77,4 @@ def insert_workout(workout, c):
 # insert_workout(workout_obj)
 
 # Close the connection
-conn.close()
+#conn.close()
