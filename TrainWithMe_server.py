@@ -164,10 +164,25 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     dec = {"name" : sender, "opcode": 8, "msg" : msg } 
                     current_socket.send(json.dumps(dec).encode())
 
+                elif(opcode == 9): # muteUser
+                    muteInfo = msg.split(",")
+                    myId = muteInfo[0]
+                    myName = muteInfo[1]
+                    UserId = muteInfo[2]
+                    UserName = muteInfo[3]
 
-                    
+def muteUser(curs, myId, myName, UserId, UserName):
+    curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
+    isAdmin = curs.fetchone()
+    if(isAdmin == 1):
+        isBlackList = 1 
+        curs.execute(f"UPDATE users SET isBlackList = '{isBlackList}' WHERE idforShow = '{UserId}' AND name = '{UserName}'")
+        return True
+    return False
+
 def deleteWorkout(curs,workoutId, workoutCreator, myId, myName):
-    isAdmin = curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
+    curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
+    isAdmin = curs.fetchone()
     if(isAdmin == 1):
         curs.execute(f"DELETE FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
         return True
@@ -178,13 +193,15 @@ def removeFromWorkout(curs, myId, myName, workoutId, workoutCreator):
     curs.execute(f"SELECT * FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' ") # check if there workout with that info exist
     exist = curs.fetchone() is not None
     if(exist):
-        participants = curs.execute(f"SELECT participants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+        curs.execute(f"SELECT participants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+        participants = curs.fetchone()
         participants = json.dumps(participants)
         del participants[myId]  # delete me from dic
         participants = json.loads(participants) # update workout info 
         curs.execute(f"UPDATE workouts SET participants = '{participants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ")
 
-        numOfParticipants = curs.execute(f"SELECT numOfParticipants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+        curs.execute(f"SELECT numOfParticipants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+        numOfParticipants = curs.fetchone()
         numOfParticipants -= 1
         curs.execute(f"UPDATE workouts SET numOfParticipants = '{numOfParticipants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ") # update number of participants.
         return True
@@ -195,15 +212,18 @@ def joinWorkout(curs, myId, myName, workoutId, workoutCreator):
     curs.execute(f"SELECT * FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' ") # check if there workout with that info exist
     exist = curs.fetchone() is not None
     if(exist):
-        isBlackList = curs.execute(f"SELECT isBlackList FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " ) # check if user not muted
+        curs.execute(f"SELECT isBlackList FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " ) # check if user not muted
+        isBlackList = curs.fetchone()
         if(isBlackList != 1):
-            participants = curs.execute(f"SELECT participants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+            curs.execute(f"SELECT participants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+            participants = curs.fetchone()
             participants = json.dumps(participants)
             participants[myId] = myName
             participants = json.loads(participants) # update workout info 
             curs.execute(f"UPDATE workouts SET participants = '{participants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ")
 
-            numOfParticipants = curs.execute(f"SELECT numOfParticipants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+            curs.execute(f"SELECT numOfParticipants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+            numOfParticipants = curs.fetchone() 
             numOfParticipants += 1
             curs.execute(f"UPDATE workouts SET numOfParticipants = '{numOfParticipants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ") # update number of participants.
             return True
@@ -211,14 +231,16 @@ def joinWorkout(curs, myId, myName, workoutId, workoutCreator):
 
 def acceptReq(curs, myId, myName, newFriendId, newFriendName):
         #update my new freind list
-        friendlist = curs.execute(f"SELECT friendlist FROM users WHERE idforShow ='{newFriendId}' AND name = '{newFriendName}' " )
+        curs.execute(f"SELECT friendlist FROM users WHERE idforShow ='{newFriendId}' AND name = '{newFriendName}' " )
+        friendlist = curs.fetchone()
         friendlist = json.dumps(friendlist)
         friendlist[myId] = myName # add me in my friend, friend list
         friendlist = json.loads(friendlist)
         curs.execute(f"UPDATE users SET friendlist = '{friendlist}' WHERE idforShow ='{newFriendId}' AND name = '{newFriendName}'  ")
 
         #update freind list for my user in data base
-        friendlist = curs.execute(f"SELECT friendlist FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
+        curs.execute(f"SELECT friendlist FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
+        friendlist = curs.fetchone()
         friendlist = json.dumps(friendlist)
         friendlist[newFriendId] = newFriendName # add my friend in my friend list
         friendlist = json.loads(friendlist)
@@ -231,7 +253,8 @@ def friendReq(curs, sender, senderId, reciver, reciverId):
     exist = curs.fetchone() is not None
     if(exist):
         #for the reciver of the friend request
-        reqList = curs.execute(f"SELECT reqList FROM users WHERE idforShow ='{reciverId}' AND name = '{reciver}' " )
+        curs.execute(f"SELECT reqList FROM users WHERE idforShow ='{reciverId}' AND name = '{reciver}' " )
+        reqList = curs.fetchone()
         reqList = json.dumps(reqList)
         reqList[senderId] = sender
         reqList = json.loads(reqList)
