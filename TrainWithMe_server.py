@@ -202,11 +202,24 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     myId = dataList[0]
                     typeUpdate = dataList[1]
                     updatedInfo = dataList[2]
-
+                
                     userInfo = updateInfo(con, curs, myId, typeUpdate, updatedInfo)
                     dec = {"name" : sender, "opcode": 11, "msg" : userInfo } 
                     current_socket.send(json.dumps(dec).encode())
+                
 
+                elif(opcode == 12): # update personal information
+                    myId = msg
+
+def newWorkoutCheckup(curs,myId):
+    
+    curs.execute(f"SELECT * FROM users WHERE myId= {myId}")
+    userInfo = curs.fetchone()
+    userInfo = list(userInfo)
+    userInfo = userInfo[:-4] # remove last 4 cells from is admin is blacklist is mute and password to create user obj
+    userObj = user(*userInfo)
+    userObj
+    
 def updateInfo(con, curs, myId, typeUpdate, updatedInfo):
     curs.execute(f"UPDATE users SET {typeUpdate} = ? WHERE idforShow = ?", (updatedInfo, myId)) # update user info
     con.commit()
@@ -352,23 +365,25 @@ def createWorkout(con, curs,workout):
 
 
 class workout:
-    def __init__(workout, time, location, sportType, participants, creator, PrivateWorkout, numOfParticipants):
-        workout.time = time
-        workout.location = location
-        workout.participant = participants
-        workout.sportType = sportType
-        workout.creator = creator
-        workout.PrivateWorkout = PrivateWorkout
-        workout.numOfParticipants = numOfParticipants
+    def __init__(workout, time, location, sportType, creator, PublicIDcreator, participants, filters, numOfParticipants, PrivateWorkout):
+        workout.time = time # string hour
+        workout.location = location # prob text index need to check
+        workout.participant = participants 
+        workout.sportType = sportType #string
+        workout.creator = creator #string
+        workout.PrivateWorkout = PrivateWorkout #boolean true of false
+        workout.numOfParticipants = numOfParticipants #int
+        workout.PublicIDcreator = PublicIDcreator # string
+        workout.filters = filters
 class user: 
     def __init__(info, Name, Last_name, Birthdate, Gender, Region, Email, publicID):
-        info.Name = Name
-        info.Last_name = Last_name
-        info.Birthdate = Birthdate
-        info.Gender = Gender
-        info.Region = Region
-        info.Email = Email
-        info.publicID = publicID
+        info.Name = Name # string
+        info.Last_name = Last_name # string
+        info.Birthdate = Birthdate # text or int need to check in client
+        info.Gender = Gender # string
+        info.Region = Region # string
+        info.Email = Email # string
+        info.publicID = publicID # string
         
     def __str__(self):
         return F"{self.Name}, {self.Last_name}, {self.Birthdate}, {self.Gender}, {self.Region}, {self.Email}"

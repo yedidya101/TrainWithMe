@@ -32,7 +32,9 @@ def createTables(c):
               location TEXT,
               sport_type TEXT,
               creator TEXT,
+              PublicIDcreator TEXT,
               participants TEXT,
+              filters TEXT,
               numOfParticipants INTEGER,
               private_workout INTEGER)''')
 
@@ -60,10 +62,12 @@ def insert_user(user, password, conn, c):
     conn.commit()
 
 def insert_workout(workout, conn, c):
-    participants = workout.participant 
+    participants = workout.participant # dic of key is id and value is name
     participants = json.loads(participants)
-    c.execute("INSERT INTO workouts (time, location, sport_type, creator,participants, numOfParticipants, private_workout) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              (workout.time, workout.location, workout.sportType, workout.creator, participants, workout.numOfParticipants, int(workout.PrivateWorkout)))
+    filters = workout.filters # dic of key is type of filter and value is what border for the filter. example: filters[age] = 45
+    filters = json.loads(filters)
+    c.execute("INSERT INTO workouts (time, location, sport_type, creator, PublicIDcreator, participants, filters, numOfParticipants, private_workout) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (workout.time, workout.location, workout.sportType, workout.creator,workout.PublicIDcreator, filters, participants, workout.numOfParticipants, int(workout.PrivateWorkout)))
     conn.commit()
 
 
