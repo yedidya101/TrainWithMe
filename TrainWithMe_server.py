@@ -46,7 +46,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
 #opcode 1 = register request.  opcode 2 = login request.  opcode 3 = workout create. opcode 4 = friend request. opcode 5 = friend accepct.
 #opcode 6 = join workout. opcode 7 = leave workout. opcode 8(admin opcode) = delete workout. opcode 9(admin) = user mute for create or join workout. 
 #opcode 10(admin) = ban user. opcode 11 = update personal information. opcode 12 = new workout info checkup. opcode 13 = new friend req checkup. 
-#opcode 14 = new friend checkup. opcode 15 = scoreboard refresh
+#opcode 14 = new friend checkup. opcode 15 = scoreboard refresh. opcode 16 = forgot password. opcode 17 = email code checkup. opcode 18 = password reset.
             else:
                 dec = GetInfo(current_socket)
                 if not dec:
@@ -210,9 +210,15 @@ def LookForClientsAndData(serverSocket, clientSocket):
 
                 elif(opcode == 12): # update personal information
                     myId = msg
+def UserInfoForFilter(curs, filters, myId): # get dic of filters take their keys and give back the value of the user for thos filters.
+    typeFilter = list(filters.keys())
+    myInfoDic = {} # dic with my info for those type of filters
+    for i in typeFilter :
+        curs.execute(f"SELECT {i} FROM users WHERE idforShow = {myId}" )
+        myInfoDic[i] = curs.fetchone()
+    return myInfoDic
 
 def newWorkoutCheckup(curs,myId):
-    
     curs.execute(f"SELECT * FROM users WHERE myId= {myId}")
     userInfo = curs.fetchone()
     userInfo = list(userInfo)
