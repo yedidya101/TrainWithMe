@@ -59,7 +59,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     userList = msg.split(',')
                     password = userList.pop()
                     print(userList)
-                    publicID = database.getUniqueID(curs)
+                    publicID = database.getUniqueIDforUsers(curs)
                     newUser = user(*userList, publicID) 
                     status, client = Register(con, curs, newUser, password) #try to register new user. if exist, status = false if not exist status = true and user have been added
                     if(status):
@@ -92,7 +92,8 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     curs.execute(f"SELECT isMute FROM users WHERE idforShow ='{creatorId}' AND name = '{creatorName}' " ) # check if user not muted
                     IsMute = curs.fetchone()
                     if(IsMute != 1):
-                        newworkout = workout(*workoutlist)
+                        publicID = database.getUniqueIDForWorkout(curs)
+                        newWorkout = workout(*workoutlist, creatorId, creatorName, publicID )
                         createWorkout(con, curs, workout)
                         msg = "workout has been added"
                     else:
@@ -210,6 +211,18 @@ def LookForClientsAndData(serverSocket, clientSocket):
 
                 elif(opcode == 12): # update personal information
                     myId = msg
+                    validWorkoutsIdList = newWorkoutCheckup(curs,myId)
+                    workoutList = loadWorkoutInfo(curs,validWorkoutsIdList) # workout list is list of lists of workouts
+                    dec = {"name" : sender, "opcode": 12, "msg" : workoutList} 
+                    current_socket.send(json.dumps(dec).encode())
+
+
+def loadWorkoutInfo(curs,validWorkoutsIdList):
+    workoutList = []
+    for i in validWorkoutsIdList:
+        curs.execute(f"SELECT * FROM workout WHERE idforShow ='{i}'") # check if there user with that info exist
+        workoutList.append(list(curs.fetchone()))
+    return workoutList
 def UserInfoForFilter(curs, filters, myId): # get dic of filters take their keys and give back the value of the user for thos filters.
     typeFilter = list(filters.keys())
     myInfoDic = {} # dic with my info for those type of filters
@@ -219,13 +232,24 @@ def UserInfoForFilter(curs, filters, myId): # get dic of filters take their keys
     return myInfoDic
 
 def newWorkoutCheckup(curs,myId):
-    curs.execute(f"SELECT * FROM users WHERE myId= {myId}")
-    userInfo = curs.fetchone()
-    userInfo = list(userInfo)
-    userInfo = userInfo[:-4] # remove last 4 cells from is admin is blacklist is mute and password to create user obj
-    userObj = user(*userInfo)
-    userObj
-    
+    validWorkouts = []
+    curs.execute(f"SELECT id, filters FROM workout")
+    workouts = curs.fetchall() # list of tuples
+    isPrivateWorkout = True 
+    for i in workouts: 
+        filters = json.loads(i[1]) # choose the filters from the tuple and bring it back to dic by json
+        typefilter = list(filters.keys()) # list of the type filter
+        myInfoDic = UserInfoForFilter(curs,filters,myId)
+
+        for g in typefilter:
+
+            if(g == "age"):
+                if(filters[g] >= myInfoDic["age"]):
+                    validWorkouts.append[i[0]] # add workout id
+            if(filters[g] == myInfoDic[g]):
+                validWorkouts.append[i[0]] # add workout id
+    return validWorkouts
+
 def updateInfo(con, curs, myId, typeUpdate, updatedInfo):
     curs.execute(f"UPDATE users SET {typeUpdate} = ? WHERE idforShow = ?", (updatedInfo, myId)) # update user info
     con.commit()
@@ -367,11 +391,11 @@ def Login(con, curs, Email, password):
     return newUser
 
 def createWorkout(con, curs,workout):
-        database.insert_workout(workout, curs)
+     database.insert_workout(workout,con, curs)
 
 
 class workout:
-    def __init__(workout, time, location, sportType, creator, PublicIDcreator, participants, filters, numOfParticipants, PrivateWorkout):
+    def __init__(workout, time, location, sportType, participants, filters, numOfParticipants, PrivateWorkout, PublicIDcreator,creator, idforShow):
         workout.time = time # string hour
         workout.location = location # prob text index need to check
         workout.participant = participants 
@@ -381,6 +405,7 @@ class workout:
         workout.numOfParticipants = numOfParticipants #int
         workout.PublicIDcreator = PublicIDcreator # string
         workout.filters = filters
+        workout.idforShow = idforShow
 class user: 
     def __init__(info, Name, Last_name, Birthdate, Gender, Region, Email, publicID):
         info.Name = Name # string
