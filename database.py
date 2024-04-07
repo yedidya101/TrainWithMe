@@ -27,7 +27,7 @@ def createTables(c):
 # Create a table for workouts
     c.execute('''CREATE TABLE IF NOT EXISTS workouts
              (id INTEGER PRIMARY KEY,
-              idforShow INTEGER UNIQE,
+              idforShow TEXT UNIQE,
               time TEXT,
               location TEXT,
               sport_type TEXT,
@@ -37,6 +37,13 @@ def createTables(c):
               filters TEXT,
               numOfParticipants INTEGER,
               private_workout INTEGER)''')
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS scoreboard
+             (LastMonthChemp TEXT,
+              LastMonthChempID TEXT,
+               month TEXT,
+               top10 TEXT,
+               top10Score TEXT)''')
 
 
 def getUniqueIDforUsers(curs):

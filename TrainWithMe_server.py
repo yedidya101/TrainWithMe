@@ -4,6 +4,10 @@ import json
 from threading import Thread
 import sqlite3
 import database
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
 
 MAX_MSG_LENGTH = 1024
 SERVER_PORT = 5555
@@ -209,30 +213,137 @@ def LookForClientsAndData(serverSocket, clientSocket):
                     current_socket.send(json.dumps(dec).encode())
                 
 
-                elif(opcode == 12): # update personal information
+                elif(opcode == 12): # new workouts checkup
                     myId = msg
                     validWorkoutsIdList = newWorkoutCheckup(curs,myId)
-                    workoutList = loadWorkoutInfo(curs,validWorkoutsIdList) # workout list is list of lists of workouts
-                    dec = {"name" : sender, "opcode": 12, "msg" : workoutList} 
+                    WorkoutDicList = loadWorkoutDicList(curs, validWorkoutsIdList)
+                    dec = {"name" : sender, "opcode": 12, "msg" : WorkoutDicList} 
                     current_socket.send(json.dumps(dec).encode())
 
 
-def loadWorkoutInfo(curs,validWorkoutsIdList):
-    workoutList = []
-    for i in validWorkoutsIdList:
-        curs.execute(f"SELECT * FROM workout WHERE idforShow ='{i}'") # check if there user with that info exist
-        workoutList.append(list(curs.fetchone()))
-    return workoutList
-def UserInfoForFilter(curs, filters, myId): # get dic of filters take their keys and give back the value of the user for thos filters.
-    typeFilter = list(filters.keys())
+                elif(opcode == 13): # avilable freind req checkup
+                    myId = msg
+                    reqList = freindReqDec(curs, myId)
+                    dec = {"name" : sender, "opcode": 13, "msg" : reqList} 
+                    current_socket.send(json.dumps(dec).encode())
+
+
+                elif(opcode == 14):
+                    myId = msg
+                    freindListDec = freindListCheckup(curs, myId)
+                    dec = {"name" : sender, "opcode": 13, "msg" : freindListDec} 
+                    current_socket.send(json.dumps(dec).encode())
+                
+                elif(opcode == 15):
+                    pass
+
+                elif(opcode == 16): #get email from user and send reset code to email and send back to user code the reset code for checking  
+                    Email = msg
+                    resetCode = request_reset_code(curs, Email, client_socket)
+                    dec = {"name" : sender, "opcode": 16, "msg" : resetCode} 
+
+                elif(opcode == 17): # update new password
+                    dataList = msg.split(",")
+                    newPassword = dataList[0]
+                    myId = dataList[1]
+                    userInfo = updateInfo(con, curs, myId, "Password", newPassword)
+                    dec = {"name" : sender, "opcode": 17, "msg" : "password has changed."} 
+                    
+
+def request_reset_code( cursor, Email, client_socket):
+    global reset_code
+    ErrorMsg = "Error happend sending code"
+    try:
+        # Check if the user with the given email exists
+        cursor.execute("SELECT * FROM users WHERE email=?", (Email,))
+        user = cursor.fetchone()
+
+        if user:
+            # Generate and send reset code
+            reset_code = str(random.randint(100000, 999999))
+
+            sender_email = "trainwithmeapplication@gmail.com"
+            app_password = "trtm elxy bueh zlvd"
+            subject = "Password Reset Code"
+            body = f"Your password reset code is: {reset_code}"
+
+            message = MIMEMultipart()
+            message["From"] = sender_email
+            message["To"] = Email
+            message["Subject"] = subject
+            message.attach(MIMEText(body, "plain"))
+
+            try:
+                with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                    server.starttls()
+                    server.login(sender_email, app_password)
+                    server.sendmail(sender_email, Email, message.as_string())
+
+                return reset_code
+            except Exception as e:
+                print(f"Error sending email: {e}")
+                return ErrorMsg
+        else:
+            return reset_code
+    except Exception as e:
+        print(f"Error requesting reset code: {e}")
+        return ErrorMsg
+
+
+def getScoreBoard(curs):
+    scoreBoardDic = {}
+    curs.execute(f"SELECT * FROM users scoreboard" )
+    scoreBoard = curs.fetchall()
+    scoreBoardDic["LastMonthChemp"] = scoreBoard[0]
+    scoreBoardDic["LastMonthID"] = scoreBoard[1]
+    scoreBoardDic["month"] = scoreBoard[2]
+    top10 = json.loads(scoreBoard[3])
+    top10Score = json.loads(scoreBoard[4])
+
+
+def freindListCheckup(curs, myId):
+    curs.execute(f"SELECT friendlist FROM users WHERE idforShow = {myId} " )
+    friendslist = json.loads(curs.fetchone()[0]) # return from data base tuple of json of req list dec and make it back to dictypeFilter
+    return friendslist
+
+
+def freindReqDec(curs, myId):
+    curs.execute(f"SELECT reqList FROM users WHERE idforShow = {myId} " )
+    reqList = json.loads(curs.fetchone()[0]) # return from data base tuple of json of req list dec and make it back to dictypeFilter
+    return reqList
+
+def loadWorkoutDicList(curs, idList): # loads into dic workout information and making list of workout dic
+    workoutDic = {} # dic of workout
+    WorkoutDicList = [] # list of dic of workouts
+    for i in idList:
+        curs.execute(f"SELECT time, location, sport_type, creator, PublicIDcreator, participants, numOfParticipants FROM workouts WHERE idforShow = {i}" )
+        workoutTuple = curs.fetchone()
+        workoutDic["time"] = workoutTuple[0]
+        workoutDic["location"] = workoutTuple[1]
+        workoutDic["sport_type"] = workoutTuple[2]
+        workoutDic["creator"] = workoutTuple[3]
+        workoutDic["PublicIDcreator"] = workoutTuple[4]
+        workoutDic["participants"] = workoutTuple[5]
+        workoutDic["numOfParticipants"] = workoutTuple[6]
+        WorkoutDicList.append(workoutDic)# add to the dic list current workout
+    return WorkoutDicList # fully information on relevant workouts
+
+#def loadWorkoutInfo(curs,validWorkoutsIdList):
+#    workoutList = []
+#    for i in validWorkoutsIdList:
+#        curs.execute(f"SELECT * FROM workout WHERE idforShow ='{i}'") # check if there user with that info exist
+#        workoutList.append(list(curs.fetchone()))
+#    return workoutList
+
+def UserInfoForFilter(curs, typeFilter, myId): # get dic of filters take their keys and give back the value of the user for thos filters.
     myInfoDic = {} # dic with my info for those type of filters
-    for i in typeFilter :
+    for i in typeFilter : #typeFilter is list of type of filters
         curs.execute(f"SELECT {i} FROM users WHERE idforShow = {myId}" )
-        myInfoDic[i] = curs.fetchone()
+        myInfoDic[i] = curs.fetchone()[0]
     return myInfoDic
 
 def newWorkoutCheckup(curs,myId):
-    validWorkouts = []
+    validWorkoutsID = []
     curs.execute(f"SELECT id, filters FROM workout")
     workouts = curs.fetchall() # list of tuples
     isPrivateWorkout = True 
@@ -242,25 +353,25 @@ def newWorkoutCheckup(curs,myId):
         myInfoDic = UserInfoForFilter(curs,filters,myId)
 
         for g in typefilter:
-
             if(g == "age"):
-                if(filters[g] >= myInfoDic["age"]):
-                    validWorkouts.append[i[0]] # add workout id
+                if(filters[g] >= myInfoDic[g]):
+                    validWorkoutsID.append[i[0]] # add workout id
             if(filters[g] == myInfoDic[g]):
-                validWorkouts.append[i[0]] # add workout id
-    return validWorkouts
+                validWorkoutsID.append[i[0]] # add workout id
+    return validWorkoutsID
 
-def updateInfo(con, curs, myId, typeUpdate, updatedInfo):
+def updateInfo(con, curs, myId, typeUpdate, updatedInfo): # update info in user information
     curs.execute(f"UPDATE users SET {typeUpdate} = ? WHERE idforShow = ?", (updatedInfo, myId)) # update user info
     con.commit()
     curs.execute(f"SELECT idforShow, name, last_name, birthdate, gender, region, Email  FROM users WHERE idforShow='{myId}'")
-    userInfo = curs.fetchone()
+    userInfo = list(curs.fetchone())
     return userInfo
     
 
 def banUser(con, curs, myId, myName, UserId, UserName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
     isAdmin = curs.fetchone() #check if user that request to ban is admin.
+    isAdmin = isAdmin[0]
     if(isAdmin == 1):
         isBlackList = 1 
         curs.execute(f"UPDATE users SET isBlackList = '{isBlackList}' WHERE idforShow = '{UserId}' AND name = '{UserName}'") # update user that got banned
@@ -273,6 +384,7 @@ def banUser(con, curs, myId, myName, UserId, UserName):
 def muteUser(con, curs, myId, myName, UserId, UserName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
     isAdmin = curs.fetchone()
+    isAdmin = isAdmin[0]
     if(isAdmin == 1):
         isMute = 1 
         curs.execute(f"UPDATE users SET isMute = '{isMute}' WHERE idforShow = '{UserId}' AND name = '{UserName}'")
@@ -283,6 +395,7 @@ def muteUser(con, curs, myId, myName, UserId, UserName):
 def deleteWorkout(con, curs,workoutId, workoutCreator, myId, myName):
     curs.execute(f"SELECT isAdmin FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " )
     isAdmin = curs.fetchone()
+    isAdmin = isAdmin[0]
     if(isAdmin == 1):
         curs.execute(f"DELETE FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
         con.commit()
@@ -291,15 +404,15 @@ def deleteWorkout(con, curs,workoutId, workoutCreator, myId, myName):
 
 
 def removeFromWorkout(con, curs, myId, myName, workoutId, workoutCreator):
-    curs.execute(f"SELECT * FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' ") # check if there workout with that info exist
+    curs.execute(f"SELECT * FROM workouts WHERE idforShow = {workoutId} AND creator = {workoutCreator} ") # check if there workout with that info exist
     exist = curs.fetchone() is not None
     if(exist):
-        curs.execute(f"SELECT participants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
+        curs.execute(f"SELECT participants FROM workouts WHERE idforShow ={workoutId} AND creator = {workoutCreator} " )
         participants = curs.fetchone()
-        participants = json.dumps(participants)
+        participants = json.loads(participants[0])
         del participants[myId]  # delete me from dic
-        participants = json.loads(participants) # update workout info 
-        curs.execute(f"UPDATE workouts SET participants = '{participants}' WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}'  ")
+        participants = json.dumps(participants) # update workout info 
+        curs.execute(f"UPDATE workouts SET participants = {participants} WHERE idforShow ={workoutId} AND creator = {workoutCreator}  ")
         con.commit()
 
         curs.execute(f"SELECT numOfParticipants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
@@ -317,6 +430,7 @@ def joinWorkout(con, curs, myId, myName, workoutId, workoutCreator):
     if(exist):
         curs.execute(f"SELECT isMute FROM users WHERE idforShow ='{myId}' AND name = '{myName}' " ) # check if user not muted
         isMute = curs.fetchone()
+        isMute = isMute[0]
         if(isMute != 1):
             curs.execute(f"SELECT participants FROM workouts WHERE idforShow ='{workoutId}' AND creator = '{workoutCreator}' " )
             participants = curs.fetchone()
@@ -338,9 +452,9 @@ def acceptReq(con, curs, myId, myName, newFriendId, newFriendName):
         #update my new freind list
         curs.execute(f"SELECT friendlist FROM users WHERE idforShow ='{newFriendId}' AND name = '{newFriendName}' " )
         friendlist = curs.fetchone()
-        friendlist = json.dumps(friendlist)
+        friendlist = json.loads(friendlist[0])
         friendlist[myId] = myName # add me in my friend, friend list
-        friendlist = json.loads(friendlist)
+        friendlist = json.dumps(friendlist)
         curs.execute(f"UPDATE users SET friendlist = '{friendlist}' WHERE idforShow ='{newFriendId}' AND name = '{newFriendName}'  ")
         con.commit()
 
@@ -361,11 +475,11 @@ def friendReq(con, curs, sender, senderId, reciver, reciverId):
     if(exist):
         #for the reciver of the friend request
         curs.execute(f"SELECT reqList FROM users WHERE idforShow ='{reciverId}' AND name = '{reciver}' " )
-        reqList = curs.fetchone()
-        reqList = json.dumps(reqList)
+        reqList = curs.fetchone()# reqList = tuple that first index is json of dec reqList
+        reqList = json.loads(reqList[0]) 
         reqList[senderId] = sender
-        reqList = json.loads(reqList)
-        curs.execute(f"UPDATE users SET reqList = '{reqList}' WHERE idforShow ='{reciverId}' AND name = '{reciver}'  ")
+        reqList = json.dumps(reqList)
+        curs.execute(f"UPDATE users SET reqList = {reqList} WHERE idforShow ='{reciverId}' AND name = '{reciver}'  ")
         con.commit()
         return True # the friend request have been sent successfully
     return False # the user that the client gave to send friend req for is not exist
