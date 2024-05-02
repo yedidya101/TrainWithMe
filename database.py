@@ -23,7 +23,8 @@ def createTables(c):
               reqList TEXT,
               isAdmin INTEGER DEFAULT 0,
               isMute INTEGER DEFAULT 0,
-              isBlackList INTEGER DEFAULT 0)''')
+              isBlackList INTEGER DEFAULT 0,
+              isLastMonthChemp INTEGER DEFAULT 0)''')
 # Create a table for workouts
     c.execute('''CREATE TABLE IF NOT EXISTS workouts
              (id INTEGER PRIMARY KEY,
@@ -38,10 +39,11 @@ def createTables(c):
               numOfParticipants INTEGER,
               private_workout INTEGER)''')
     
+    #mont = string , top10 = dic of keys as places in top 10 and id + name as values and the word month as key and the current month as value.
+    #top10score = dic of keys as places in top 10 and score of the current place as value.
     c.execute('''CREATE TABLE IF NOT EXISTS scoreboard
              (LastMonthChemp TEXT,
-              LastMonthChempID TEXT,
-               month TEXT,
+              LastMonthChempID TEXT, 
                top10 TEXT,
                top10Score TEXT)''')
 

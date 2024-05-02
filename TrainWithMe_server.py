@@ -50,7 +50,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
 #opcode 1 = register request.  opcode 2 = login request.  opcode 3 = workout create. opcode 4 = friend request. opcode 5 = friend accepct.
 #opcode 6 = join workout. opcode 7 = leave workout. opcode 8(admin opcode) = delete workout. opcode 9(admin) = user mute for create or join workout. 
 #opcode 10(admin) = ban user. opcode 11 = update personal information. opcode 12 = new workout info checkup. opcode 13 = new friend req checkup. 
-#opcode 14 = new friend checkup. opcode 15 = scoreboard refresh. opcode 16 = forgot password. opcode 17 = email code checkup. opcode 18 = password reset.
+#opcode 14 = new friend checkup. opcode 15 = scoreboard refresh. opcode 16 = forgot password. opcode 17 = password reset.
             else:
                 dec = GetInfo(current_socket)
                 if not dec:
@@ -292,14 +292,11 @@ def request_reset_code( cursor, Email, client_socket):
 
 def getScoreBoard(curs):
     scoreBoardDic = {}
-    curs.execute(f"SELECT * FROM users scoreboard" )
-    scoreBoard = curs.fetchall()
-    scoreBoardDic["LastMonthChemp"] = scoreBoard[0]
-    scoreBoardDic["LastMonthID"] = scoreBoard[1]
-    scoreBoardDic["month"] = scoreBoard[2]
-    top10 = json.loads(scoreBoard[3])
-    top10Score = json.loads(scoreBoard[4])
-
+    curs.execute(f"SELECT top10, top10Score FROM users scoreboard" )
+    scoreBoard = curs.fetchone()
+    top10 = json.loads(scoreBoard[0]) # dic of keys as places in top 10 and id + name as values and include key month and value of the current month
+    top10Score = json.loads(scoreBoard[1])# dic of keys as places in top 10 and score of the current place as value.
+    return top10, top10Score
 
 def freindListCheckup(curs, myId):
     curs.execute(f"SELECT friendlist FROM users WHERE idforShow = {myId} " )
