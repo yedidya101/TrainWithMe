@@ -44,6 +44,7 @@ def LookForClientsAndData(serverSocket, clientSocket):
                 print("New client joined!" , client_address)
                 clientSocket.append(client_socket)
                 name = client_socket.recv(MAX_MSG_LENGTH).decode().lstrip()
+                print(name)
                 dic[name] = client_socket #add client to client list
 
                
