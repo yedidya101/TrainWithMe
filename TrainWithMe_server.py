@@ -12,7 +12,6 @@ import random
 MAX_MSG_LENGTH = 1024
 SERVER_PORT = 5555
 SERVER_IP = '0.0.0.0'
-print ("howw")
 def server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((SERVER_IP, SERVER_PORT))
